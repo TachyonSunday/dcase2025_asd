@@ -45,7 +45,7 @@ train:
   batch_size: 64            # 批次大小
   epochs: 100               # 最大训练轮数
   learning_rate: 0.001      # 初始学习率
-  weight_decay: 1e-5        # L2 正则化
+  weight_decay: 0.00001     # L2 正则化
   early_stopping_patience: 15 # Early Stopping 耐心值
   num_workers: 4            # DataLoader 工作进程数
   pin_memory: true          # 是否将数据 pin 到 GPU 内存
