@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# 数据文件
+data/raw/*
+data/processed/*
+data/train/*
+data/test/*
+!data/**/.gitkeep
+
+# 模型 & 日志
+checkpoints/*
+logs/*
+!checkpoints/.gitkeep
+!logs/.gitkeep
+
+# 环境 & IDE
+.venv/
+.env
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store

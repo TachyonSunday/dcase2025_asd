@@ -1,0 +1,69 @@
+# ============================================================
+# DCASE 2025 Task 2 — 无监督异常声音检测 全局配置文件
+# ============================================================
+
+# --- 音频预处理参数 ---
+audio:
+  sample_rate: 16000        # 目标采样率 (Hz)
+  duration: 10.0            # 单段音频时长 (秒)
+  highpass_cutoff: 80       # 高通滤波截止频率 (Hz)
+  denoise_enabled: true     # 是否启用谱减法降噪
+
+# --- Log-Mel 频谱参数 ---
+mel:
+  n_fft: 1024               # FFT 窗口大小
+  hop_length: 512           # 帧移 (50% overlap)
+  n_mels: 128               # Mel 滤波器组数量
+  f_min: 50                 # 最低频率 (Hz)
+  f_max: 8000               # 最高频率 (Hz)
+  power: 2.0                # 功率谱指数
+  top_db: 80                # 动态范围 (dB)
+
+# --- 帧切分参数 ---
+frame:
+  window_size: 64           # 每帧包含的频谱帧数 (时间步)
+  hop_size: 32              # 滑动步长 (50% overlap)
+  min_frames: 10            # 最小有效帧数 (丢弃过短片段)
+
+# --- ConvAE 模型参数 ---
+conv_ae:
+  latent_dim: 128           # 瓶颈层维度
+  channels: [1, 32, 64, 128] # 编码器通道数 (含输入通道)
+  kernel_size: 3            # 卷积核大小
+  padding: 1                # padding 大小
+
+# --- DANN 领域泛化参数 ---
+dann:
+  num_domains: 3            # 域数量
+  domain_hidden: 64         # 域分类器隐藏层维度
+  lambda_init: 0.0          # 对抗损失初始权重
+  lambda_final: 0.1         # 对抗损失最终权重
+  lambda_gamma: 10.0        # λ 退火指数增长因子
+
+# --- 训练参数 ---
+train:
+  batch_size: 64            # 批次大小
+  epochs: 100               # 最大训练轮数
+  learning_rate: 0.001      # 初始学习率
+  weight_decay: 1e-5        # L2 正则化
+  early_stopping_patience: 15 # Early Stopping 耐心值
+  num_workers: 4            # DataLoader 工作进程数
+  pin_memory: true          # 是否将数据 pin 到 GPU 内存
+
+# --- 异常检测参数 ---
+anomaly:
+  threshold_percentile: 90  # 异常分数阈值百分位
+  decision_threshold: null  # 手动覆盖阈值 (null = 自动计算)
+
+# --- 路径 ---
+paths:
+  data_raw: "data/raw/"
+  data_processed: "data/processed/"
+  data_train: "data/train/"
+  data_test: "data/test/"
+  checkpoints: "checkpoints/"
+  logs: "logs/"
+
+# --- 设备 ---
+device: "cuda"              # "cuda" | "cpu"
+seed: 42                    # 随机种子 (可复现性)
