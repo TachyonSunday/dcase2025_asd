@@ -45,6 +45,10 @@ class FeaturePipeline:
         self.target_duration: float = audio_cfg["duration"]
         self.denoise_enabled: bool = audio_cfg.get("denoise_enabled", True)
 
+        # 归一化统计量 (在训练集上计算)
+        self.norm_mean: Optional[float] = None
+        self.norm_std: Optional[float] = None
+
         self.denoiser = AudioDenoiser(
             sample_rate=self.sample_rate,
             highpass_cutoff=audio_cfg.get("highpass_cutoff", 80.0),
@@ -114,11 +118,40 @@ class FeaturePipeline:
         waveform = self.denoiser.denoise(waveform, enabled=self.denoise_enabled)
         # 步骤3: Log-Mel 频谱提取
         log_mel_tensor = self.extractor.extract_tensor(waveform)
-        # 步骤4: 保存
+        # 步骤4: 归一化 (若已计算统计量)
+        if self.norm_mean is not None and self.norm_std is not None:
+            log_mel_tensor = (log_mel_tensor - self.norm_mean) / (self.norm_std + 1e-8)
+        # 步骤5: 保存
         if output_path is not None:
             os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
             torch.save(log_mel_tensor, output_path)
         return log_mel_tensor
+
+    def compute_norm_stats(self, data_dir: str, file_pattern: str = "*.wav",
+                           max_files: int = 500) -> Tuple[float, float]:
+        """
+        从训练数据计算 Log-Mel 频谱的全局均值与标准差, 用于 Z-score 归一化。
+
+        返回 (mean, std) 并存储到 self.norm_mean / self.norm_std。
+        """
+        import glob as _glob
+        files = sorted(_glob.glob(os.path.join(data_dir, "**", file_pattern), recursive=True))
+        if max_files and len(files) > max_files:
+            files = files[:max_files]
+
+        all_vals = []
+        for fpath in tqdm(files, desc="计算归一化统计量"):
+            wav = self.load_audio(fpath)
+            wav = self.denoiser.denoise(wav, enabled=self.denoise_enabled)
+            mel = self.extractor.extract(wav)
+            all_vals.append(mel.flatten())
+
+        if all_vals:
+            all_concat = np.concatenate(all_vals)
+            self.norm_mean = float(np.mean(all_concat))
+            self.norm_std = float(np.std(all_concat))
+            print(f"[Pipeline] 归一化统计量 — mean={self.norm_mean:.4f}, std={self.norm_std:.4f}")
+        return self.norm_mean, self.norm_std
 
     def process_directory(
         self,
