@@ -14,7 +14,7 @@ mel:
   n_fft: 1024               # FFT 窗口大小
   hop_length: 512           # 帧移 (50% overlap)
   n_mels: 128               # Mel 滤波器组数量
-  f_min: 50                 # 最低频率 (Hz)
+  f_min: 0                  # 最低频率 (Hz) — 匹配官方 baseline
   f_max: 8000               # 最高频率 (Hz)
   power: 2.0                # 功率谱指数
   top_db: 80                # 动态范围 (dB)
