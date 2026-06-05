@@ -27,8 +27,11 @@ def main():
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
     # 使用更合理的训练配置
-    cfg["train"]["epochs"] = 30
+    cfg["train"]["epochs"] = 100
     cfg["train"]["batch_size"] = 128
+    cfg["frame"]["window_size"] = 32
+    cfg["conv_ae"]["channels"] = [1, 64, 128]
+    cfg["conv_ae"]["latent_dim"] = 32
 
     import tempfile
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tf:

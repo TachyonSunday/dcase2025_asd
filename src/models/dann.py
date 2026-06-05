@@ -110,8 +110,9 @@ class DANNAutoEncoder(nn.Module):
         # 梯度反转层
         self.grl = GradientReversalLayer(lambda_init=lambda_init)
 
-        # 域分类器
-        latent_dim = conv_ae.encoder._latent_dim
+        # 域分类器 (v2: bottleneck_dim, v1 兼容: _latent_dim)
+        latent_dim = getattr(conv_ae.encoder, "bottleneck_dim", None) or \
+                     getattr(conv_ae.encoder, "_latent_dim", 128)
         self.domain_classifier = DomainClassifier(
             input_dim=latent_dim,
             hidden_dim=domain_hidden,
@@ -137,10 +138,10 @@ class DANNAutoEncoder(nn.Module):
             - z: 隐向量
             - domain_logits: 域分类 logits
         """
-        z = self.encoder(x)
-        x_recon = self.decoder(z)
+        fmap, z = self.encoder(x)
+        x_recon = self.decoder(fmap)
 
-        # 域分类分支 (经过 GRL 反转梯度)
+        # 域分类分支 (经过 GRL 反转梯度, 对 GAP 隐向量 z 做域分类)
         z_reversed = self.grl(z)
         domain_logits = self.domain_classifier(z_reversed)
 
@@ -151,23 +152,20 @@ class DANNAutoEncoder(nn.Module):
         self.grl.set_lambda(value)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """仅编码, 返回隐向量。"""
-        return self.encoder(x)
+        """仅编码, 返回 GAP 隐向量。"""
+        _, z = self.encoder(x)
+        return z
 
     def reconstruct(self, x: torch.Tensor) -> torch.Tensor:
         """仅重建。"""
-        z = self.encoder(x)
-        return self.decoder(z)
+        fmap, _ = self.encoder(x)
+        return self.decoder(fmap)
 
     def bind(self, sample_input: torch.Tensor) -> None:
         """
-        使用样本输入完成惰性初始化 (确保编解码器已绑定)。
-        必须在首次训练前调用一次。
+        (兼容性方法) v2 架构无需惰性初始化, 此方法为空操作。
         """
-        with torch.no_grad():
-            self.encoder._init_fc(sample_input)
-            self.decoder._init_fc(sample_input, self.encoder.conv)
-            self.decoder._latent_dim_val = self.encoder._latent_dim
+        pass
 
     @classmethod
     def from_config(

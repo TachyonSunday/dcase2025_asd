@@ -27,9 +27,9 @@ frame:
 
 # --- ConvAE 模型参数 ---
 conv_ae:
-  latent_dim: 128           # 瓶颈层维度
+  latent_dim: 16            # 瓶颈层通道数 (v2: 卷积瓶颈, 保留空间结构)
   channels: [1, 32, 64, 128] # 编码器通道数 (含输入通道)
-  kernel_size: 3            # 卷积核大小
+  kernel_size: 3            # 卷积核大小 (stride-2 下/上采样层)
   padding: 1                # padding 大小
 
 # --- DANN 领域泛化参数 ---
