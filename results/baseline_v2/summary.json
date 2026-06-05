@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "machine": "ToyCar",
+      "auc_mah": 0.4828,
+      "f1": 0.019047619047619046,
+      "threshold": 733.3221496582031,
+      "tp": 1,
+      "tn": 96,
+      "fp": 4,
+      "fn": 99,
+      "train_frames": 309000,
+      "test_n_files": 100,
+      "test_a_files": 100,
+      "best_epoch": 99
+    }
+  ],
+  "average_auc_mah": 0.4828
+}
