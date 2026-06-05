@@ -1,0 +1,15 @@
+{
+  "machine": "gearbox",
+  "auc_mse": 0.5690185096646404,
+  "auc_mah": 0.5671060719896182,
+  "f1_mah": 0.6703601063466365,
+  "threshold": 1.503903578655542,
+  "tp": 120,
+  "tn": 2,
+  "fp": 119,
+  "fn": 1,
+  "train_frames": 309000,
+  "test_n_files": 121,
+  "test_a_files": 121,
+  "best_epoch": 99
+}

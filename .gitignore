@@ -32,3 +32,4 @@ logs/*
 
 # macOS
 .DS_Store
+results/

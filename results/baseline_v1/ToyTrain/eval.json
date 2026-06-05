@@ -1,0 +1,15 @@
+{
+  "machine": "ToyTrain",
+  "auc_mse": 0.5837032989549893,
+  "auc_mah": 0.488013113858343,
+  "f1_mah": 0.6722222177594137,
+  "threshold": 2.0700807271045005,
+  "tp": 120,
+  "tn": 3,
+  "fp": 118,
+  "fn": 1,
+  "train_frames": 309000,
+  "test_n_files": 121,
+  "test_a_files": 121,
+  "best_epoch": 99
+}

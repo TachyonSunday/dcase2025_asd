@@ -1,0 +1,15 @@
+{
+  "machine": "fan",
+  "auc_mse": 0.5289939211802474,
+  "auc_mah": 0.5055665596612253,
+  "f1_mah": 0.668587891711417,
+  "threshold": 1.3511233522361614,
+  "tp": 115,
+  "tn": 11,
+  "fp": 110,
+  "fn": 6,
+  "train_frames": 309000,
+  "test_n_files": 121,
+  "test_a_files": 121,
+  "best_epoch": 97
+}

@@ -1,0 +1,15 @@
+{
+  "machine": "ToyCar",
+  "auc_mse": 0.5537873096099993,
+  "auc_mah": 0.526671675432006,
+  "f1_mah": 0.6666666622222223,
+  "threshold": 1.8561464254101812,
+  "tp": 120,
+  "tn": 0,
+  "fp": 121,
+  "fn": 1,
+  "train_frames": 309000,
+  "test_n_files": 121,
+  "test_a_files": 121,
+  "best_epoch": 94
+}
