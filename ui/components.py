@@ -308,8 +308,9 @@ def recon_comparison_plot(
         fig.add_trace(go.Heatmap(
             z=log_mel, x=times, y=mel_bins,
             colorscale="Viridis", zmin=-80, zmax=0,
-            colorbar=dict(title="dB"),
+            colorbar=dict(title="dB", x=1.02, xanchor="left"),
         ))
+        fig.update_layout(margin=dict(r=80))
 
     fig.update_xaxes(title_text="时间 (秒)", row=2, col=1)
     fig.update_yaxes(title_text="Mel 频带", row=1, col=1)
