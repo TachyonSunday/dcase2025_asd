@@ -237,15 +237,17 @@ class InferenceEngine:
 
         frame_scores_arr = np.array(frame_scores)
 
-        # 步骤4: 聚合为文件级分数
+        # 步骤4: 聚合为文件级分数 (均值 + top-10% 均值)
         file_score = float(np.mean(frame_scores_arr))
+        k = max(1, int(len(frame_scores_arr) * 0.1))  # top 10%
+        topk_score = float(np.mean(np.sort(frame_scores_arr)[-k:]))
+        max_score = float(np.max(frame_scores_arr))
 
-        # 步骤5: 判定
+        # 步骤5: 判定 (topk 均值对局部异常更敏感)
         if self.threshold is not None:
-            is_anomaly = bool(file_score > self.threshold)
+            is_anomaly = bool(topk_score > self.threshold)
         else:
-            # 无阈值时使用 heuristic: 超过均值+2*std 为异常
-            is_anomaly = bool(file_score > np.mean(frame_scores_arr) + 2 * np.std(frame_scores_arr))
+            is_anomaly = bool(topk_score > file_score * 1.5)
 
         return {
             "waveform": waveform,
@@ -254,6 +256,8 @@ class InferenceEngine:
             "log_mel": log_mel,
             "frame_scores": frame_scores_arr,
             "file_score": file_score,
+            "topk_score": topk_score,
+            "max_score": max_score,
             "is_anomaly": is_anomaly,
             "recon_error_map": recon_errors_full.squeeze(0).numpy() if recon_errors_full is not None else None,
         }

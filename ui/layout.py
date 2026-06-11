@@ -112,6 +112,8 @@ def render_results(
     log_mel: np.ndarray,
     frame_scores: np.ndarray,
     file_score: float,
+    topk_score: float,
+    max_score: float,
     is_anomaly: bool,
     threshold: Optional[float],
     recon_error_map: Optional[np.ndarray],
@@ -135,9 +137,9 @@ def render_results(
 
     # ---- 顶部判定横幅 ----
     if is_anomaly:
-        st.error(f"⚠️ 检测到异常声音! 异常分数: {file_score:.4f}")
+        st.error(f"⚠️ 检测到异常声音! 均值={file_score:.2f} | 峰值段均值={topk_score:.2f}")
     else:
-        st.success(f"✅ 声音正常。异常分数: {file_score:.4f}")
+        st.success(f"✅ 声音正常。均值={file_score:.2f} | 峰值段均值={topk_score:.2f} | 最大值={max_score:.2f}")
 
     # ---- 第一行: 三列 (波形 / 频谱 / 仪表盘) ----
     col1, col2, col3 = st.columns(3)

@@ -138,6 +138,8 @@ def main() -> None:
             log_mel=result["log_mel"],
             frame_scores=result["frame_scores"],
             file_score=result["file_score"],
+            topk_score=result.get("topk_score", result["file_score"]),
+            max_score=result.get("max_score", result["file_score"]),
             is_anomaly=result["is_anomaly"],
             threshold=engine.threshold,
             recon_error_map=result["recon_error_map"],
