@@ -88,21 +88,24 @@ def main() -> None:
                 else:
                     # 即使没有检查点, 也可以加载随机权重模型演示界面
                     engine.model_type = model_type
-                    from src.models.conv_ae import ConvAE
-                    from src.models.dann import DANNAutoEncoder
-                    import torch
-                    import yaml
+                    import torch, yaml
                     with open(os.path.join(PROJECT_ROOT, "config.yaml")) as f:
                         cfg = yaml.safe_load(f)
-                    dummy = torch.randn(1, 1, cfg["mel"]["n_mels"], cfg["frame"]["window_size"])
-                    if model_type == "conv_ae":
+                    if model_type == "mlp":
+                        from ui.inference import MLPAE
+                        engine.model = MLPAE().to(engine.device)
+                    elif model_type == "conv_ae":
+                        from src.models.conv_ae import ConvAE
                         engine.model = ConvAE.from_config(os.path.join(PROJECT_ROOT, "config.yaml"))
-                        engine.model.bind(dummy)
+                        engine.model.bind(torch.randn(1, 1, cfg["mel"]["n_mels"], cfg["frame"]["window_size"]))
+                        engine.model.to(engine.device)
                     else:
+                        from src.models.conv_ae import ConvAE
+                        from src.models.dann import DANNAutoEncoder
                         conv_ae = ConvAE.from_config(os.path.join(PROJECT_ROOT, "config.yaml"))
                         engine.model = DANNAutoEncoder(conv_ae=conv_ae, num_domains=cfg["dann"]["num_domains"])
-                        engine.model.bind(dummy)
-                    engine.model.to(engine.device)
+                        engine.model.bind(torch.randn(1, 1, cfg["mel"]["n_mels"], cfg["frame"]["window_size"]))
+                        engine.model.to(engine.device)
                     engine.threshold = config["threshold"]
 
                 st.session_state.engine = engine

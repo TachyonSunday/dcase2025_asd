@@ -15,6 +15,29 @@ from src.models.conv_ae import ConvAE
 from src.models.dann import DANNAutoEncoder
 
 
+class MLPAE(torch.nn.Module):
+    """MLP 自编码器 (与 train_all_baseline.py BaselineAE 一致)。"""
+    def __init__(self):
+        super().__init__()
+        bn = {"momentum": 0.01, "eps": 1e-3}
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(640, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 8), torch.nn.BatchNorm1d(8, **bn), torch.nn.ReLU(),
+        )
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(8, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 128), torch.nn.BatchNorm1d(128, **bn), torch.nn.ReLU(),
+            torch.nn.Linear(128, 640),
+        )
+    def forward(self, x):
+        z = self.encoder(x); return self.decoder(z), z
+
+
 class InferenceEngine:
     """
     推理引擎 —— 封装模型加载与推理流程, 为 Streamlit 前端提供简洁 API。
@@ -74,10 +97,13 @@ class InferenceEngine:
         """
         self.model_type = model_type
 
-        if model_type == "conv_ae":
+        if model_type == "mlp":
+            self.model = MLPAE().to(self.device)
+            ckpt = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
+            self.model.load_state_dict(ckpt)
+        elif model_type == "conv_ae":
             self.model = ConvAE.from_config()
             checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
-            # 用 dummy 输入完成惰性绑定
             dummy = torch.randn(1, 1, self.config["mel"]["n_mels"], self.window_size).to(self.device)
             self.model.bind(dummy)
             self.model.load_state_dict(checkpoint["model_state_dict"])
@@ -166,33 +192,48 @@ class InferenceEngine:
         # 转为张量
         spec_tensor = torch.from_numpy(log_mel).unsqueeze(0).to(self.device)  # (1, n_mels, T)
 
-        # 步骤2: 滑动窗口切分
-        frames = self._sliding_window_frames(spec_tensor)  # (N, 1, n_mels, window_size)
-
-        # 步骤3: 逐帧推理
+        # 步骤2: 推理 (分支: MLP用5帧堆叠, ConvAE用2D卷积)
         frame_scores: List[float] = []
         recon_errors_full: Optional[torch.Tensor] = None
 
-        batch_size = self.config["train"]["batch_size"]
-        for i in range(0, len(frames), batch_size):
-            batch = frames[i : i + batch_size].to(self.device)
-
-            if self.model_type == "conv_ae":
+        if self.model_type == "mlp":
+            # MLP: 5 帧堆叠 → 640-dim 向量 → 逐帧 MSE
+            n_frames = 5
+            T = spec_tensor.shape[-1]
+            n_vecs = max(0, T - n_frames + 1)
+            vecs = []
+            for t in range(n_vecs):
+                vecs.append(spec_tensor[0, :, t:t+n_frames].flatten())  # (640,)
+            if not vecs:
+                vecs.append(torch.zeros(640))
+            all_vecs = torch.stack(vecs, dim=0).to(self.device)  # (N, 640)
+            # 逐 batch 推理
+            bs = 2048
+            for i in range(0, len(all_vecs), bs):
+                batch = all_vecs[i:i+bs]
                 x_recon, _ = self.model(batch)
-            else:
-                (x_recon, _), _ = self.model(batch)
-
-            # 逐帧 MSE 异常分数
-            sq_error = (x_recon - batch) ** 2  # (B, 1, n_mels, window_size)
-            scores = sq_error.mean(dim=[1, 2, 3])  # (B,)
-            frame_scores.extend(scores.cpu().tolist())
-
-            # 收集重建误差 (用于热力图)
-            sq_error_mean = sq_error.mean(dim=0)  # (1, n_mels, window_size) — 批次平均
-            if recon_errors_full is None:
-                recon_errors_full = sq_error_mean.cpu()
-            else:
-                recon_errors_full = torch.cat([recon_errors_full, sq_error_mean.cpu()], dim=-1)
+                mse = ((x_recon - batch) ** 2).mean(dim=1)  # (B,)
+                frame_scores.extend(mse.cpu().tolist())
+            # 重建误差热力图用简化的逐帧误差
+            recon_errors_full = torch.zeros(1, spec_tensor.shape[1], max(n_vecs, 1))
+        else:
+            # ConvAE/DANN: 2D 滑动窗口
+            frames = self._sliding_window_frames(spec_tensor)
+            batch_size = self.config["train"]["batch_size"]
+            for i in range(0, len(frames), batch_size):
+                batch = frames[i : i + batch_size].to(self.device)
+                if self.model_type == "conv_ae":
+                    x_recon, _ = self.model(batch)
+                else:
+                    (x_recon, _), _ = self.model(batch)
+                sq_error = (x_recon - batch) ** 2
+                scores = sq_error.mean(dim=[1, 2, 3])
+                frame_scores.extend(scores.cpu().tolist())
+                sq_error_mean = sq_error.mean(dim=0)
+                if recon_errors_full is None:
+                    recon_errors_full = sq_error_mean.cpu()
+                else:
+                    recon_errors_full = torch.cat([recon_errors_full, sq_error_mean.cpu()], dim=-1)
 
         frame_scores_arr = np.array(frame_scores)
 

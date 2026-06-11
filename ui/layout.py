@@ -50,14 +50,19 @@ def render_sidebar() -> Dict[str, Any]:
         st.header("🧠 模型配置")
         model_type = st.selectbox(
             "模型类型",
-            options=["conv_ae", "dann"],
-            format_func=lambda x: "ConvAE (自编码器)" if x == "conv_ae" else "DANN (域对抗网络)",
+            options=["mlp", "conv_ae", "dann"],
+            format_func=lambda x: {"mlp": "MLP-AE (官方基线)", "conv_ae": "ConvAE (卷积自编码器)", "dann": "DANN (域对抗网络)"}[x],
             help="选择用于异常检测的模型",
         )
 
+        default_ckpt = {
+            "mlp": "results/baseline_v5/ToyCar/checkpoint.pt",
+            "conv_ae": "checkpoints/best_model.pt",
+            "dann": "checkpoints/best_dann_model.pt",
+        }
         checkpoint_path = st.text_input(
             "模型检查点路径",
-            value=f"checkpoints/best_{'dann_' if model_type == 'dann' else ''}model.pt",
+            value=default_ckpt[model_type],
             help=".pt 检查点文件的路径",
         )
 
