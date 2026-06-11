@@ -55,15 +55,20 @@ def render_sidebar() -> Dict[str, Any]:
             help="选择用于异常检测的模型",
         )
 
-        default_ckpt = {
-            "mlp": "results/baseline_v5/ToyCar/checkpoint.pt",
-            "conv_ae": "checkpoints/best_model.pt",
-            "dann": "checkpoints/best_dann_model.pt",
-        }
+        # ---- 机器类型 ----
+        machine_type = st.selectbox(
+            "机器类型",
+            options=["ToyCar", "ToyTrain", "bearing", "fan", "gearbox", "slider", "valve"],
+            help="选择要检测的机器类型 (需对应训练好的模型)",
+        )
+        default_ckpt = f"results/baseline_v5/{machine_type}/checkpoint.pt"
+        if model_type != "mlp":
+            default_ckpt = f"checkpoints/best_{'dann_' if model_type == 'dann' else ''}model.pt"
+
         checkpoint_path = st.text_input(
             "模型检查点路径",
-            value=default_ckpt[model_type],
-            help=".pt 检查点文件的路径",
+            value=default_ckpt,
+            help=".pt 检查点文件的路径 (根据机器类型自动填充)",
         )
 
         st.markdown("---")
