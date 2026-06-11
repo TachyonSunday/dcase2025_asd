@@ -1,0 +1,641 @@
+Detection and Classification of Acoustic Scenes and Events 2025
+30-31 October 2025, Barcelona, Spain
+DESCRIPTION AND DISCUSSION ON DCASE 2025 CHALLENGE TASK 2: FIRST-SHOT
+UNSUPERVISED ANOMALOUS SOUND DETECTION FOR MACHINE CONDITION
+MONITORING
+Tomoya Nishida1, Noboru Harada2, Daisuke Niizumi2, Davide Albertini3, Roberto Sannino3,
+Simone Pradolini3, Filippo Augusti3, Keisuke Imoto4, Kota Dohi1, Harsh Purohit1,
+Takashi Endo1, and Yohei Kawaguchi1
+1 Hitachi, Ltd., Japan, tomoya.nishida.ax@hitachi.com
+2 NTT, Inc., Japan, harada.noboru@ntt.com
+3 STMicroelectronics, Switzerland,
+4 Kyoto University, Japan, keisuke.imoto@ieee.org
+ABSTRACT
+This paper introduces the task description for the Detection and
+Classification of Acoustic Scenes and Events (DCASE) 2025 Chal-
+lenge Task 2, titled “First-shot unsupervised anomalous sound de-
+tection (ASD) for machine condition monitoring.” Building on the
+DCASE 2024 Challenge Task 2, this task is structured as a first-
+shot problem within a domain generalization framework. The pri-
+mary objective of the first-shot approach is to facilitate the rapid de-
+ployment of ASD systems for new machine types without requiring
+machine-specific hyperparameter tunings. For DCASE 2025 Chal-
+lenge Task 2, sounds from previously unseen machine types have
+been collected and provided as the evaluation dataset. We received
+119 submissions from 35 teams, and an analysis of these submis-
+sions has been made in this paper. Analysis showed that various
+approaches can all be competitive, such as fine-tuning pre-trained
+models, using frozen pre-trained models, and training small mod-
+els from scratch, when combined with appropriate cost functions,
+anomaly score normalization, and use of clean machine and noise
+sounds.
+Index Terms— anomaly detection, acoustic condition monitor-
+ing, domain shift, first-shot problem, DCASE Challenge
+1. INTRODUCTION
+Anomalous sound detection (ASD) [1–7] involves determining
+whether the sound emitted from a target machine is normal or
+anomalous. This capability plays a crucial role in automating the
+detection of mechanical failures, which is essential in the era of the
+fourth industrial revolution and AI-driven factory automation.
+One of the key challenges in developing ASD systems lies in
+the scarcity and limited diversity of anomalous samples available
+for training. To address this, the first ASD task was introduced
+in the DCASE Challenge 2020 Task 2 [8], focusing on “unsuper-
+vised ASD (UASD),” which aimed to detect unknown anomalous
+sounds using only normal sound samples for training. Building on
+this, subsequent challenges in 2021 and 2022 [9,10] tackled the is-
+sue of domain shifts to enable broader application of ASD systems.
+Domain shifts refer to discrepancies between data from the source
+and target domains, arising due to variations in machine operational
+conditions or environmental noise.
+The DCASE 2023/2024 Task 2 (“first-shot” UASD) [11, 12]
+targeted a realistic setting where systems must detect anomalies
+for entirely novel machine types without access to similar-type
+data for training or hyperparameter tuning.
+This reflects rapid-
+deployment scenarios in which collecting diverse training or test
+data—especially anomalous samples—is infeasible, and therefore
+manual test-driven tuning is unrealistic. Accordingly, the evalua-
+tion data comprise machine types absent from the development set
+to enforce this constraint.
+The DCASE2025 Challenge Task 2 maintains the previous task
+setting as a first-shot problem under domain generalization condi-
+tions, using newly recorded machine sound data as the evaluation
+dataset. In addition, there are several modifications: We provide
+additional supplementary data for each machine, including clean
+machine recordings or noise samples, which can optionally be used
+to enhance ASD performance in noisy environments. Also, partic-
+ipants are asked to provide the computational complexity of their
+solutions. Although this score is not used for the official rankings,
+it helps clarify the balance between model complexity and perfor-
+mance—a key factor for lightweight ASD applications on edge de-
+vices. In this paper, we provide explanations on this task and discuss
+the challenge results.
+2. FIRST-SHOT UNSUPERVISED ANOMALOUS SOUND
+DETECTION UNDER DOMAIN SHIFTED CONDITIONS
+Consider an audio clip x, which contains sounds produced by a ma-
+chine. The objective of the ASD task is to classify the machine as
+either normal or anomalous by calculating an anomaly score Aθ(x)
+using an anomaly score calculator A with parameters θ. The input
+of A can be the audio clip x with or without additional information
+such as labels indicating the operation condition of the machine.
+The machine is then determined to be anomalous when Aθ(x) ex-
+ceeds a pre-defined threshold ϕ as
+Decision =
+
+Anomaly
+(Aθ(x) > ϕ)
+Normal
+(otherwise).
+(1)
+The primary difficulty in this task is to train the anomaly score cal-
+culator with only normal sounds (UASD). The DCASE 2020 Chal-
+lenge Task 2 [8] was designed to address this issue, and all the fol-
+lowing tasks stand on this UASD setting.
+Addressing the domain-shift problem is also essential for the
+practical implementation of ASD systems. Domain shifts refer to
+variations in conditions between training and testing phases, which
+arXiv:2506.10097v2  [cs.SD]  26 Sep 2025
+
+---PAGE BREAK---
+Detection and Classification of Acoustic Scenes and Events 2025
+30-31 October 2025, Barcelona, Spain
+alter the distribution of the observed sound data. These variations
+can result from differences in operating speed, machine load, heat-
+ing temperature, microphone arrangement, environmental noise,
+and other factors. Two domains are defined: the source domain,
+representing the original condition with sufficient training data, and
+the target domain, representing another condition where only lim-
+ited samples are available. This year’s task follows the 2022 to 2024
+Task 2 [10–12] setting, where the domain information is assumed
+to be unknown in the test phase and anomalies from both domains
+have to be detected with a single threshold. In this case, domain
+generalization is required to achieve good performance.
+To further pursue the rapid development of ASD systems in
+real-world scenarios, solving ASD (a) against completely novel ma-
+chine types (b) with only one section of training data (c) without
+handcrafted tunings that depend on test data, are highly important.
+This is because in real-world scenarios, customers may only pos-
+sess a single novel machine, and collecting test data-especially the
+anomalous samples-for handcrafted tuning may be infeasible. This
+problem setting was named as the “first-shot problem”, and the
+2023 and 2024 Task 2 [11,12] was organized based on this problem
+setting. The first-shot problem was implemented by introducing
+two key features to the dataset: (i) The development and evalua-
+tion datasets consist of entirely different sets of machine types, and
+(ii) Each machine type in the dataset contains only a single section.
+Note that until 2022 Task 2, the provided dataset included multiple
+sections for each machine type, and the development and evaluation
+datasets sharing the same machine types.
+The DCASE2025 Challenge Task 2 retains the previous task
+setting as a first-shot problem under domain generalization con-
+ditions, while introducing several modifications.
+First, we have
+provided additional supplementary data, including clean machine
+recordings and noise samples. These resources may reflect practi-
+cal scenarios—such as collecting clean machine data when a factory
+is idle or gathering noise recordings when the machine is not run-
+ning. Participants are free to incorporate these additional sources
+to enhance the accuracy of their models. Second, although large-
+scale models—such as pretrained networks and ensembles—have
+become increasingly popular in this task, lightweight models capa-
+ble of running on edge devices also remain an important area of
+research. To acknowledge this, participants were optionally asked
+to report the computational complexity of their solutions in terms
+of Multiply-Accumulate Operations (MACs). Although this metric
+does not affect the official rankings, it provides valuable insight into
+the balance between model complexity and performance.
+3. TASK SETUP
+3.1. Dataset
+The dataset for this task is divided into three categories: the de-
+velopment dataset, the additional training dataset, and the eval-
+uation dataset. The development dataset contains seven machine
+types, while the additional training and evaluation datasets include
+nine machine types, with each machine type consisting of a single
+section. A machine type refers to the category of machines, such as
+fans or gearboxes, and a section represents a subset or the entirety
+of the data associated with each machine type.
+All recording are single-channel, lasting 6 to 10 seconds, and
+have a sampling rate of 16 kHz. The machine sounds recorded at
+laboratories were mixed with environmental noise recorded at fac-
+tories and in the suburbs to create each sample in the dataset. For
+further details of the recording process, please refer to the papers on
+ToyADMOS2 [13] and MIMII DG [14].
+The development dataset provides seven machine types (fan,
+gearbox, bearing, slide rail, valve, ToyCar, ToyTrain), and each ma-
+chine type has one section that contains a complete set of the train-
+ing and test data. Each section contains (i) 990 normal clips from
+a source domain for training, (ii) 10 normal clips from a target do-
+main for training, (iii) 100 clips of supplementary sound data con-
+taining either clean normal machine sounds in the source domain
+or noise-only sounds, and (iv) 100 normal clips and 100 anomalous
+clips from both domains for the test. To assist participants, domain
+information (source/target) was included in the test data. For four
+machine types (fan, gearbox, valve, and ToyCar) details regarding
+operational or environmental conditions were provided in the file
+names and attribute CSV files. However, for the remaining three
+machine types, these attributes were not disclosed.
+The additional training dataset provides novel nine machine
+types (AutoTrash, HomeCamera, ToyPet, ToyRCCar, BandSealer,
+Polisher, ScrewFeeder, CoffeeGrinder). Each section consists of
+(i) 990 normal clips in a source domain for training, (ii) 10 nor-
+mal clips in a target domain for training. and (iii) 100 clips of
+supplementary sound data containing either clean normal machine
+sounds in the source domain or noise-only sounds. For five machine
+types (HomeCamera, ToyRCCar, BandSealer, and CoffeeGrinder),
+attributes were provided in this dataset. For the other four machine
+types, attributes were concealed. The evaluation dataset provides
+the test clips that correspond to the additional training dataset, e.g.
+data of the same machine types as the additional training dataset.
+Each section consists of 200 test clips, none of which have a condi-
+tion label (i.e., normal or anomaly), domain information, or attribute
+information. Participants are required to train a model for each new
+machine type using only a single section per machine type.
+3.2. Evaluation metrics
+To assess overall detection performance, we employed the area un-
+der the receiver operating characteristic curve (AUC). Additionally,
+we used the partial AUC (pAUC) to evaluate performance in a low
+false-positive rate range [0, p], where we set p = 0.1. To evaluate
+each system under the domain generalization setting, we compute
+the AUC for each domain and pAUC for each section as
+AUCm,n,d =
+1
+N −
+d N +
+n
+N−
+d
+X
+i=1
+N+
+n
+X
+j=1
+H(Aθ(x+
+j ) −Aθ(x−
+i )),
+(2)
+pAUCm,n =
+1
+⌊pN −
+n ⌋N +
+n
+⌊pN−
+n ⌋N+
+n
+X
+i=1
+N+
+n
+X
+j=1
+H(Aθ(x+
+j ) −Aθ(x−
+i )), (3)
+where m and n represent the index of a machine type and a section
+respectively, d ∈{source, target} represents a domain, ⌊·⌋is the
+flooring function, and H(y) returns 1 when y > 0 and 0 otherwise.
+Here, {x−
+i }
+N−
+d
+i=1 are the normal test clips in domain d in section n
+of machine type m and {x+
+j }
+N+
+n
+j=1 are all the anomalous test clips in
+section n of machine type m. N −
+d , N −
+n , N +
+n represent the number
+of normal test clips in domain d, normal test clips in section n, and
+anomalous test clips in section n, respectively.
+The official score Ωis given by the harmonic mean of the AUC
+and pAUC scores overall machine types and sections:
+Ω
+=
+h
+
+AUCm,n,d, pAUCm,n
+|
+m ∈M, n ∈S(m), d ∈{source, target}} ,
+(4)
+
+---PAGE BREAK---
+Detection and Classification of Acoustic Scenes and Events 2025
+30-31 October 2025, Barcelona, Spain
+where h {·} represents the harmonic mean, M is the set of given
+machine types, and S(m) represents the set of sections for machine
+type m. Specifically, S(m) = {00} for the dataset in 2024-2025.
+Additionally, although not included in the official rankings, par-
+ticipants were optionally asked to provide information on the com-
+putational complexity of their models in terms of MAC operations.
+It was recommended that this be calculated using the open-source
+implementation available in [15].
+3.3. Baseline systems and results
+The task organizers offer a baseline system using Autoencoders
+(AEs) with two operating modes, identical to the 2023 Task 2 base-
+line. While both modes use Autoencoders for training, they differ
+in anomaly score computation. This paper presents the system and
+its detection performance; details can be found in [16].
+3.3.1. Autoencoder training
+The AE is trained for both operating modes using log-mel-
+spectrograms of training sound clips X = [X1, . . . , XT ], where
+Xt ∈RF for t = 1, . . . , T represents frame-wise feature vectors
+at frame t, where F = 128 and T is the number of mel-filters and
+time-frames, respectively. For input, P = 5 consecutive frames
+are concatenated as ψt = [XT
+t , . . . , XT
+t+P −1]T ∈RD for each t,
+with D = P × F = 640. Model parameters are trained by mini-
+mizing the mean squared error (MSE) between the input ψt and the
+reconstructed output rθ(ψt) for all inputs from the training data.
+3.3.2. Simple Autoencoder mode
+This mode uses the mean MSE of all features derived from the given
+sound clip as its anomaly score, e.g.,
+Aθ(X) =
+1
+DK
+K
+X
+k=1
+∥ψk −rθ(ψk)∥2
+2,
+(5)
+where K = T −P + 1, and ∥· ∥2 represents ℓ2 norm.
+3.3.3. Selective Mahalanobis mode
+In this mode, the Mahalanobis distance between the system input
+and reconstructed feature is used to compute the anomaly score.
+The anomaly score is defined as
+Aθ(X) =
+1
+DK
+K
+X
+k=1
+min{Ds(ψk, rθ(ψk)), Dt(ψk, rθ(ψk))},
+(6)
+Ds(·) = Mahalanobis(ψk, rθ(ψk), Σ−1
+s ),
+(7)
+Dt(·) = Mahalanobis(ψk, rθ(ψk), Σ−1
+t ),
+(8)
+where Σ−1
+s
+and Σ−1
+t
+are the covariance matrices of rθ(ψk) −ψk
+for the source and target domain data of each machine type, respec-
+tively.
+3.3.4. Results
+Tables 1 present the AUC and pAUC results for the two baseline
+systems on the development dataset, with the averages and standard
+deviations computed from five independent trials.
+Table 1: Baseline results for development dataset.
+Machine type
+Mode
+AUC [%]
+pAUC [%]
+Source
+Target
+ToyCar
+MSE
+71.05 ± 0.50
+53.32 ± 0.56
+49.79 ± 0.49
+MAHALA
+73.17 ± 0.39
+50.91 ± 0.85
+49.05 ± 0.05
+ToyTrain
+MSE
+61.76 ± 0.74
+56.46 ± 0.47
+50.19 ± 0.25
+MAHALA
+50.87 ± 2.88
+46.15 ± 1.77
+48.32 ± 0.05
+bearing
+MSE
+66.53 ± 2.63
+53.15 ± 1.99
+61.12 ± 0.59
+MAHALA
+63.63 ± 1.15
+59.03 ± 1.79
+61.86 ± 0.36
+fan
+MSE
+70.96 ± 0.94
+38.75 ± 0.74
+49.46 ± 0.53
+MAHALA
+77.99 ± 0.23
+38.56 ± 0.58
+50.82 ± 0.06
+gearbox
+MSE
+64.80 ± 1.48
+50.49 ± 1.22
+52.49 ± 0.37
+MAHALA
+73.26 ± 0.78
+51.61 ± 0.52
+55.07 ± 0.47
+slider
+MSE
+70.10 ± 1.01
+48.77 ± 1.07
+52.32 ± 0.36
+MAHALA
+73.79 ± 1.95
+50.27 ± 1.15
+53.61 ± 0.26
+valve
+MSE
+63.53 ± 2.90
+67.18 ± 1.75
+57.35 ± 1.96
+MAHALA
+56.22 ± 2.22
+61.00 ± 2.98
+52.53 ± 1.32
+4. CHALLENGE RESULTS
+4.1. Overall results
+We received 119 submissions from 35 teams. 20 teams outper-
+formed both baselines, which slightly increased compared to last
+year’s task (11 out of 27 teams). Looking at the results for each
+domain separately, six teams surpassed the baselines on the source-
+domain AUC, while 25 did so on the target-domain AUC. Four
+teams achieved higher AUCs than the baselines in both domains.
+This shows the difficulty of improving the performance on both the
+source and target domain at the same time. Figure 1 shows the
+AUC values for the top 10 teams. In the source domain, whether
+each team could beat the baseline was highly machine-dependent,
+and many teams struggled to outperform the baseline on average.
+Specifically, machines for which attribute information was avail-
+able tended to perform poorly, although it is unclear whether this
+factor is actually relevant. In contrast, all of the top 10 teams out-
+performed the baselines in the target domain in the harmonic mean.
+Figure 2 compares the AUC values of the top 20 teams between
+the development and evaluation datasets. As can be seen, achiev-
+ing high AUC values in the development dataset does not indicate
+high AUC in the evaluation dataset. This is a typical trend in the
+first-shot problem setting which started from 2023, and shows the
+difficulty in finding an approach robust to machine types in the ab-
+sence of test data. Thus, building an ASD system that works well
+for unknown machine types remains both a difficult and important
+challenge. In Figure 3, we compare the harmonic mean AUC val-
+ues in the source and target domain of the evaluation dataset among
+the top 20 teams. The figure shows a negative correlation between
+the AUC in the source and target domain. While the top 3 teams
+achieved very close official scores (within 1.0% difference), their
+balance between the source and target AUC varied. Achieving well
+balanced performance between the source and target domain may
+be important to achieve high ranks.
+4.2. Trends in model size
+We analyzed the computational-complexity trends of the submitted
+systems. MACs were reported by 21 teams. Figure 4 plots each
+submission’s MAC count against its official score; if a team submit-
+ted multiple systems with identical MAC values, only the highest-
+ranked system was retained.
+The figure shows a broad range of MAC counts across submis-
+sions. It also highlights that larger computational budgets did not
+necessarily yield higher scores. Notably, two submissions from dif-
+ferent teams [17,18] achieved scores exceeding the baselines while
+
+---PAGE BREAK---
+Detection and Classification of Acoustic Scenes and Events 2025
+30-31 October 2025, Barcelona, Spain
+*
+*
+*
+*
+Figure 1: Evaluation results of top 10 teams in ranking. Average source (top) and target-domain AUC (bottom) for each machine type (“*”
+indicates that attributes are hidden.). Labels “A” and “M” on denote simple Autoencoder mode and selective Mahalanobis mode, respectively.
+Figure 2: Comparison of harmonic mean of AUC for development
+and evaluation dataset across teams.
+Figure 3: Comparison of harmonic mean of AUC for source and
+target domain in evaluation dataset across teams.
+using fewer MACs. This shows the feasibility of computationally
+efficient solutions for first-shot UASD, and could be one of the fu-
+ture directions for research.
+4.3. New approaches seen in the top-ranked teams
+a. Use of pretrained models
+This year, following the trend from previous years, many
+participants adopted pretrained models in their anomaly-detection
+pipelines. Many of those teams fine-tuned them with an attribute
+or domain classification-based auxiliary task, such as the 1, 4, 5th
+ranked teams [19–21]. On the other hand, interestingly, several of
+the high-ranking teams achieved strong performance using frozen
+pretrained networks, exploiting intermediate-layer features along
+with anomaly-score normalization [22]. The 2nd [23] and 8th [24]
+Figure 4: Comparison of officials scores of submissions against the
+MACs values.
+place teams solely used frozen models within their submissions,
+while the 4th-place team [20] ensembled frozen networks to the
+fine-tuned ones. Nevertheless, teams that trained lightweight mod-
+els from scratch with classification-based tasks also achieved high
+ranks, including the 3rd ranked team [17, 18], showing that pre-
+trained models are not an absolute prerequisite for competitive per-
+formance. Overall, diverse approaches were all competitive this
+year and each approach may still have room for further research.
+b. Use of supplemental data
+Participants tried utilizing the newly released supplemental
+clean-machine and noise recordings, applying them in two distinct
+ways. In the first way, they were used for data augmentation. The
+1st [19] and several other top-10 teams [24–26] injected the sup-
+plemental clips as an extra class in auxiliary classifiers, blended
+the noise signals with training samples, or leveraged them in con-
+trastive learning [18] to enrich feature space diversity. Conversely,
+the 3rd and 4th-place teams [17, 20], used the clean/noise data to
+build enhancement modules that extracted or denoised target ma-
+chine sounds from the noisy training data, and supplied these ex-
+tracted signals to their main anomaly-detection networks.
+5. CONCLUSION
+We presented an overview of the DCASE 2025 Challenge Task
+2. The task’s aim was to develop ASD systems that work for a
+novel machine type with a single section for each machine type,
+where supplemental data such as clean machine sounds or noise-
+only sounds were also provided.
+We discussed several new ap-
+proaches seen in the challenge, such as how pretrained models were
+(or were not) used and the use of the newly provided supplemental
+data. While we were not able to discuss all new approaches, we
+hope that all the technical reports will contribute to the advance-
+ments in the field of anomalous sound detection.
+
+---PAGE BREAK---
+Detection and Classification of Acoustic Scenes and Events 2025
+30-31 October 2025, Barcelona, Spain
+6. REFERENCES
+[1] Y. Koizumi, S. Saito, H. Uematsu, and N. Harada, “Optimiz-
+ing acoustic feature extractor for anomalous sound detection
+based on Neyman-Pearson lemma,” in Proc. EUSIPCO, 2017,
+pp. 698–702.
+[2] Y. Kawaguchi and T. Endo, “How can we detect anomalies
+from subsampled audio signals?” in Proc. IEEE MLSP, 2017.
+[3] Y. Koizumi, S. Saito, H. Uematsu, Y. Kawachi, and N. Harada,
+“Unsupervised detection of anomalous sound based on
+deep learning and the Neyman-Pearson lemma,” IEEE/ACM
+TASLP, vol. 27, no. 1, pp. 212–224, Jan. 2019.
+[4] Y. Kawaguchi, R. Tanabe, T. Endo, K. Ichige, and K. Hamada,
+“Anomaly detection based on an ensemble of dereverbera-
+tion and anomalous sound extraction,” in Proc. IEEE ICASSP,
+2019, pp. 865–869.
+[5] Y. Koizumi, S. Saito, M. Yamaguchi, S. Murata, and
+N. Harada, “Batch uniformization for minimizing maximum
+anomaly score of DNN-based anomaly detection in sounds,”
+in Proc. IEEE WASPAA, 2019, pp. 6–10.
+[6] K. Suefusa, T. Nishida, H. Purohit, R. Tanabe, T. Endo, and
+Y. Kawaguchi, “Anomalous sound detection based on interpo-
+lation deep neural network,” in Proc. IEEE ICASSP, 2020, pp.
+271–275.
+[7] H. Purohit, R. Tanabe, T. Endo, K. Suefusa, Y. Nikaido,
+and Y. Kawaguchi, “Deep autoencoding GMM-based unsu-
+pervised anomaly detection in acoustic signals and its hyper-
+parameter optimization,” in Proc. DCASE Workshop, 2020,
+pp. 175–179.
+[8] Y. Koizumi,
+Y. Kawaguchi,
+K. Imoto,
+T. Nakamura,
+Y. Nikaido, R. Tanabe, H. Purohit, K. Suefusa, T. Endo,
+M. Yasuda, and N. Harada, “Description and discussion
+on DCASE2020 challenge task2: Unsupervised anomalous
+sound detection for machine condition monitoring,” in Proc.
+DCASE Workshop, 2020, pp. 81–85.
+[9] Y. Kawaguchi, K. Imoto, Y. Koizumi, N. Harada, D. Niizumi,
+K. Dohi, R. Tanabe, H. Purohit, and T. Endo, “Description and
+discussion on DCASE 2021 challenge task 2: Unsupervised
+anomalous detection for machine condition monitoring under
+domain shifted conditions,” in Proc. DCASE Workshop, 2021,
+pp. 186–190.
+[10] K. Dohi, K. Imoto, N. Harada, D. Niizumi, Y. Koizumi,
+T. Nishida, H. Purohit, R. Tanabe, T. Endo, M. Yamamoto,
+and Y. Kawaguchi, “Description and discussion on DCASE
+2022 challenge task 2: Unsupervised anomalous sound detec-
+tion for machine condition monitoring applying domain gen-
+eralization techniques,” in Proc. DCASE Workshop, 2022, pp.
+26–30.
+[11] K. Dohi, K. Imoto, N. Harada, D. Niizumi, Y. Koizumi,
+T. Nishida, H. Purohit, R. Tanabe, T. Endo, and Y. Kawaguchi,
+“Description and discussion on DCASE 2023 challenge task
+2: First-shot unsupervised anomalous sound detection for
+machine condition monitoring,” in Proc. DCASE Workshop,
+2023, pp. 31–35.
+[12] T. Nishida, N. Harada, D. Niizumi, D. Albertini, R. San-
+nino, S. Pradolini, F. Augusti, K. Imoto, K. Dohi, H. Puro-
+hit, R. Tanabe, T. Endo, and Y. Kawaguchi, “Description and
+discussion on DCASE 2024 challenge task 2: First-shot un-
+supervised anomalous sound detection for machine condition
+monitoring,” in Proc. DCASE Workshop, 2024, pp. 111–115.
+[13] N. Harada, D. Niizumi, D. Takeuchi, Y. Ohishi, M. Yasuda,
+and S. Saito, “ToyADMOS2: Another dataset of miniature-
+machine operating sounds for anomalous sound detection un-
+der domain shift conditions,” in Proc. DCASE Workshop,
+2021, pp. 1–5.
+[14] K. Dohi, T. Nishida, H. Purohit, R. Tanabe, T. Endo, M. Ya-
+mamoto, Y. Nikaido, and Y. Kawaguchi, “MIMII DG: Sound
+dataset for malfunctioning industrial machine investigation
+and inspection for domain generalization task,” in Proc.
+DCASE Workshop, 2022.
+[15] L. Zhu,
+“Thop:
+Pytorch-opcounter,”
+https://github.com/
+Lyken17/pytorch-OpCounter, 2019.
+[16] N. Harada,
+N. Daisuke,
+T. Daiki,
+O. Yasunori,
+and
+Y. Masahiro, “First-shot anomaly detection for machine con-
+dition monitoring:
+A domain generalization baseline,” in
+Proc. EUSIPCO, 2023, pp. 191–195.
+[17] J. Yang, “A two stage fusion anomaly detection approach for
+Task2,” DCASE2025 Challenge, Tech. Rep., June 2025.
+[18] Q. Zhou and S. Wu, “Machine anomalous sound detection
+combining convolutional auto-encoder and contrastive learn-
+ing,” DCASE2025 Challenge, Tech. Rep., June 2025.
+[19] L. Wang, “Pre-trained model enhanced anomalous sound de-
+tection system for DCASE2025 Task2,” DCASE2025 Chal-
+lenge, Tech. Rep., June 2025.
+[20] F. Takuya, I. Kuroyanagi, and T. Toda, “The NU systems for
+DCASE 2025 Challenge Task 2,” DCASE2025 Challenge,
+Tech. Rep., June 2025.
+[21] A. Jiang, W. Liang, S. Feng, Y. Qiu, Y. Zhao, J. Li, P. Fan, W.-
+Q. Zhang, C. Lu, X. Chen, Y. Qian, and J. Liu, “THUEE sys-
+tem for DCASE 2025 anomalous sound detection challenge,”
+DCASE2025 Challenge, Tech. Rep., June 2025.
+[22] K. Wilkinghoff, H. Yang, J. Ebbers, F. G. Germain, G. Wich-
+ern, and J. Le Roux, “Keeping the balance:
+Anomaly
+score calculation for domain generalization,” in Proc. IEEE
+ICASSP.
+IEEE, 2025, pp. 1–5.
+[23] P. Saengthong and T. Shinozaki, “GenRep for first-shot un-
+supervised anomalous sound detection of DCASE2025 Chal-
+lenge,” DCASE2025 Challenge, Tech. Rep., June 2025.
+[24] T. Shiraga,
+K. Ozeki,
+T. Masuzaki,
+N. Tanaka,
+and
+T. Kuriyama, “Anomalous sound detection method using con-
+trastive learning,” DCASE2025 Challenge, Tech. Rep., June
+2025.
+[25] X. Zheng, A. Jiang, B. Han, S. Zhang, W.-Q. Zhang, X. Chen,
+C. Lu, P. Fan, J. Liu, and Y. Qian, “SJTU-AITHU sys-
+tem for DCASE 2025 anomalous sound detection challenge,”
+DCASE2025 Challenge, Tech. Rep., June 2025.
+[26] S. Zhang, F. Xiao, S. Fan, Q. Zhu, W. Wang, and J. Guan,
+“Anomalous sound detection using pre-trained model with sta-
+tistical feature difference representation,” DCASE2025 Chal-
+lenge, Tech. Rep., June 2025.
+
+---PAGE BREAK---

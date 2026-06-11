@@ -28,11 +28,12 @@ def main() -> None:
     configure_page()
 
     # ---- 页面标题 ----
-    st.title("🔊 DCASE 2025 Task 2 — 无监督异常声音检测")
+    st.title("🔊 无监督异常声音检测系统")
     st.markdown(
         """
-        上传机器运行音频 (WAV / MP3 / FLAC)，使用卷积自编码器 (ConvAE)
-        或域对抗网络 (DANN) 实时检测异常声音。
+        基于 DCASE 2025 Challenge Task 2，上传机器运行音频 (WAV / MP3 / FLAC)，
+        使用自编码器实时分析声谱、定位异常片段并输出检测结果。
+        支持 **MLP-AE (官方基线)** / **ConvAE (卷积自编码器)** / **DANN (域对抗网络)** 三种模型。
         """
     )
     st.markdown("---")
