@@ -151,9 +151,8 @@ def render_results(
         )
 
     with col2:
-        st.plotly_chart(
+        st.pyplot(
             mel_spectrogram_plot(log_mel, sample_rate, hop_length, title="梅尔瀑布图"),
-            use_container_width=True,
         )
 
     with col3:
@@ -180,11 +179,10 @@ def render_results(
 
     with col5:
         if recon_error_map is not None:
-            st.plotly_chart(
+            st.pyplot(
                 recon_comparison_plot(
                     log_mel, recon_error_map, sample_rate, hop_length,
                 ),
-                use_container_width=True,
             )
         else:
             st.info("重建误差热力图不可用 (模型未返回误差数据)")

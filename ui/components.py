@@ -1,12 +1,16 @@
 """
-可视化组件模块 —— 封装 Plotly 图表, 为 Streamlit 提供开箱即用的音频分析视图。
+可视化组件模块 —— Plotly 交互图表 + Matplotlib 热力图。
 """
 
 from typing import List, Optional
 
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import streamlit as st
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
 
 
@@ -74,51 +78,23 @@ def mel_spectrogram_plot(
     sample_rate: int,
     hop_length: int = 512,
     title: str = "Log-Mel 频谱图",
-) -> go.Figure:
-    """
-    绘制交互式 Log-Mel 频谱热力图 (梅尔瀑布图)。
-
-    参数
-    ----
-    log_mel : np.ndarray
-        Log-Mel 频谱图, shape=(n_mels, T)。
-    sample_rate : int
-        采样率 (Hz)。
-    hop_length : int
-        帧移 (用于时间轴换算)。
-    title : str
-        图表标题。
-
-    返回
-    ----
-    go.Figure
-        Plotly 热力图对象。
-    """
+):
+    """Matplotlib 热力图, colorbar 不挤占主图。"""
     n_mels, n_frames = log_mel.shape
-    # 时间轴 (秒)
     times = np.arange(n_frames) * hop_length / sample_rate
-    # 频率轴 (Mel 编号)
-    mel_bins = np.arange(n_mels)
 
-    fig = go.Figure(data=go.Heatmap(
-        z=log_mel,
-        x=times,
-        y=mel_bins,
-        colorscale="Viridis",
-        zmin=-80,
-        zmax=0,
-        colorbar=dict(title="dB"),
-        hovertemplate="时间: %{x:.3f}s<br>Mel: %{y}<br>dB: %{z:.1f}<extra></extra>",
-    ))
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    im = ax.imshow(log_mel, aspect="auto", origin="lower",
+                   extent=[times[0], times[-1], 0, n_mels],
+                   cmap="viridis", vmin=-80, vmax=0)
+    ax.set_xlabel("时间 (秒)")
+    ax.set_ylabel("Mel 频带")
+    ax.set_title(title)
 
-    fig.update_layout(
-        title=title,
-        xaxis_title="时间 (秒)",
-        yaxis_title="Mel 频带",
-        template="plotly_white",
-        height=350,
-        margin=dict(l=40, r=20, t=50, b=40),
-    )
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.08)
+    plt.colorbar(im, cax=cax, label="dB")
+    plt.tight_layout()
     return fig
 
 
@@ -253,72 +229,39 @@ def recon_comparison_plot(
     sample_rate: int,
     hop_length: int = 512,
     title: str = "重建误差热力图",
-) -> go.Figure:
-    """
-    绘制重建误差热力图, 展示频谱哪些区域未被模型良好重建。
-
-    参数
-    ----
-    log_mel : np.ndarray
-        原始 Log-Mel 频谱图, shape=(n_mels, T)。
-    recon_error : np.ndarray
-        逐元素重建平方误差, shape 应与 log_mel 相容 (或按时间裁剪)。
-    sample_rate : int
-        采样率。
-    hop_length : int
-        帧移。
-    title : str
-        图表标题。
-
-    返回
-    ----
-    go.Figure
-        双面板对比图 (原频谱 + 重建误差)。
-    """
+):
+    """Matplotlib 双面板热力图, colorbar 不挤占主图。"""
     n_mels, n_frames = log_mel.shape
     times = np.arange(n_frames) * hop_length / sample_rate
-    mel_bins = np.arange(n_mels)
-
     has_error = recon_error is not None and recon_error.size > 0 and np.max(np.abs(recon_error)) > 1e-8
 
-    if has_error:
-        fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=("原始 Log-Mel 频谱", "重建误差 (MSE)"),
-            vertical_spacing=0.12,
-        )
-        # 上: 原始频谱
-        fig.add_trace(
-            go.Heatmap(z=log_mel, x=times, y=mel_bins,
-                       colorscale="Viridis", zmin=-80, zmax=0,
-                       colorbar=dict(title="dB", x=0.46, len=0.4, y=0.82)),
-            row=1, col=1,
-        )
-        # 下: 重建误差
-        err_frames = min(recon_error.shape[-1], n_frames)
-        fig.add_trace(
-            go.Heatmap(z=recon_error[:, :err_frames], x=times[:err_frames],
-                       y=np.arange(recon_error.shape[0]),
-                       colorscale="Reds",
-                       colorbar=dict(title="MSE", x=0.46, len=0.4, y=0.32)),
-            row=2, col=1,
-        )
-    else:
-        fig = go.Figure()
-        fig.add_trace(go.Heatmap(
-            z=log_mel, x=times, y=mel_bins,
-            colorscale="Viridis", zmin=-80, zmax=0,
-            colorbar=dict(title="dB", x=1.02, xanchor="left"),
-        ))
-        fig.update_layout(margin=dict(r=80))
+    n_rows = 2 if has_error else 1
+    fig, axes = plt.subplots(n_rows, 1, figsize=(10, 3.5 * n_rows), squeeze=False)
 
-    fig.update_xaxes(title_text="时间 (秒)", row=2, col=1)
-    fig.update_yaxes(title_text="Mel 频带", row=1, col=1)
-    fig.update_yaxes(title_text="Mel 频带", row=2, col=1)
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        height=550,
-        margin=dict(l=40, r=20, t=60, b=40),
-    )
+    # 上: 原始频谱
+    ax0 = axes[0][0]
+    im0 = ax0.imshow(log_mel, aspect="auto", origin="lower",
+                     extent=[times[0], times[-1], 0, n_mels],
+                     cmap="viridis", vmin=-80, vmax=0)
+    ax0.set_xlabel("时间 (秒)"); ax0.set_ylabel("Mel 频带")
+    ax0.set_title("原始 Log-Mel 频谱")
+    div0 = make_axes_locatable(ax0)
+    cax0 = div0.append_axes("right", size="3%", pad=0.08)
+    plt.colorbar(im0, cax=cax0, label="dB")
+
+    # 下: 重建误差
+    if has_error:
+        ax1 = axes[1][0]
+        err_frames = min(recon_error.shape[-1], n_frames)
+        im1 = ax1.imshow(recon_error[:, :err_frames], aspect="auto", origin="lower",
+                         extent=[times[0], times[err_frames-1] if err_frames > 0 else times[-1],
+                                 0, recon_error.shape[0]],
+                         cmap="Reds")
+        ax1.set_xlabel("时间 (秒)"); ax1.set_ylabel("Mel 频带")
+        ax1.set_title("重建误差 (MSE)")
+        div1 = make_axes_locatable(ax1)
+        cax1 = div1.append_axes("right", size="3%", pad=0.08)
+        plt.colorbar(im1, cax=cax1, label="MSE")
+
+    plt.tight_layout()
     return fig
