@@ -11,14 +11,21 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# 注册中文字体
-_font_path = "/home/siriuschen/.fonts/NotoSansCJKsc-Regular.otf"
-if __import__("os").path.exists(_font_path):
-    fm.fontManager.addfont(_font_path)
-    _prop = fm.FontProperties(fname=_font_path)
-    _font_name = _prop.get_name()
-    plt.rcParams["font.family"] = _font_name
-    plt.rcParams["axes.unicode_minus"] = False
+# 注册中文字体 (自动检测系统字体或使用默认)
+try:
+    _font_paths = [
+        "/home/siriuschen/.fonts/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    ]
+    _font_path = next((p for p in _font_paths if __import__("os").path.exists(p)), None)
+    if _font_path:
+        fm.fontManager.addfont(_font_path)
+        _prop = fm.FontProperties(fname=_font_path)
+        plt.rcParams["font.family"] = _prop.get_name()
+        plt.rcParams["axes.unicode_minus"] = False
+except Exception:
+    pass  # 回退到英文标签
 import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
