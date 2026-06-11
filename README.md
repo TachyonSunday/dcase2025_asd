@@ -1,121 +1,121 @@
-# DCASE 2025 Task 2 — First-Shot Unsupervised Anomalous Sound Detection
+# 无监督异常声音检测系统
 
-基于 PyTorch 的无监督异常声音检测系统，支持 **ConvAE (卷积自编码器)** 和 **DANN (域对抗神经网络)** 两种模型，并附带基于 Streamlit 的交互式 Web 前端。
+> 基于 DCASE 2025 Challenge Task 2 (First-Shot Unsupervised Anomalous Sound Detection)
+> 支持 MLP-AE / ConvAE / DANN 三种模型 + Streamlit 交互式前端
 
-## 功能特性
+## 项目概览
 
-- **完整音频特征流水线** — 原始音频 → 高通滤波 + 谱减法降噪 → Log-Mel 频谱 → 帧切分
-- **ConvAE 基线模型** — 基于重构误差的异常检测
-- **DANN 领域泛化** — 引入梯度反转层 (GRL) 的域对抗训练，提升跨域泛化能力
-- **交互式 Web 前端** — 上传音频 → 实时梅尔瀑布图 → 异常分数判定，开箱即用
+| 维度 | 详情 |
+|------|------|
+| 任务 | 从机器运行声音中检测异常（无监督，仅用正常样本训练） |
+| 模型 | MLP-AE (官方基线) / ConvAE (卷积自编码器) / DANN (域对抗网络) |
+| 数据集 | DCASE 2025 T2 开发集 (7 种机器: ToyCar/ToyTrain/fan/gearbox/bearing/slider/valve) |
+| 前端 | Streamlit Web 界面, 上传音频 → 实时频谱可视化 → 异常判定 |
+| 环境 | WSL2 Ubuntu, PyTorch 2.5.1+cu121, RTX 4060 GPU |
+
+## 实验成果
+
+**7 台机器 MLP-AE 平均 AUC(src) = 0.671，追平官方基线 (0.670)。**
+
+| 机器 | AUC(source) | AUC(target) |
+|------|:----------:|:----------:|
+| ToyCar | 0.684 | 0.381 |
+| ToyTrain | 0.649 | 0.543 |
+| bearing | 0.634 | 0.492 |
+| fan | 0.729 | 0.330 |
+| gearbox | 0.630 | 0.475 |
+| slider | 0.689 | 0.493 |
+| valve | 0.680 | 0.675 |
 
 ## 目录结构
 
 ```
 dcase2025_asd/
-├── config.yaml              # 全局超参数配置
-├── data/
-│   ├── raw/                 # 原始音频文件 (.wav)
-│   ├── processed/           # 预处理后的 .pt 张量
-│   ├── train/               # 训练集
-│   └── test/                # 测试集
+├── config.yaml              # 全局超参数
 ├── src/
-│   ├── features/            # 特征工程：降噪、频谱提取、数据集
-│   ├── models/              # 网络结构：ConvAE、DANN、损失函数
-│   └── utils/               # 训练器、评估器
-├── ui/
-│   ├── app.py               # Streamlit 主入口
-│   ├── components.py        # 可视化组件
-│   ├── inference.py         # 推理桥接
+│   ├── features/            # 去噪 + Log-Mel 频谱 + Dataset 流水线
+│   ├── models/              # ConvAE / DANN / GRL / Losses
+│   └── utils/               # Trainer / DANNTrainer / Evaluator
+├── scripts/
+│   └── train_all_baseline.py  # 主训练脚本 (GPU预加载, 7机器, 断点续训)
+├── ui/                      # Streamlit 前端
+│   ├── app.py               # 主入口
+│   ├── inference.py         # 推理引擎 (MLP/ConvAE/DANN)
+│   ├── components.py        # 5种可视化 (Plotly+Matplotlib)
 │   └── layout.py            # 页面布局
-├── checkpoints/             # 模型权重
-├── logs/                    # 训练日志
-├── requirements.txt
-├── setup.py
-└── LICENSE                  # MIT
+├── data/
+│   ├── raw/                 # DCASE 数据集 (7 + 8 附加)
+│   ├── processed/           # 预处理 .pt 张量
+│   └── demo/                # 测试音频样本
+├── results/                 # 实验结果
+│   └── baseline_v5/         # v5: 7/7 完成, 追平官方基线
+├── paper/                   # 论文调研 (8篇, 中英对照)
+│   ├── DANN_Ganin_2016 + 翻译
+│   ├── ConvAE_Masci_2011 + 翻译
+│   ├── 官方综述 + 翻译
+│   ├── 第一名/第二名/第三名 技术报告 + 翻译
+│   └── Kim / Zheng 高质量方案 + 翻译
+├── checkpoints/
+├── logs/
+└── REPORT.md                # 完整项目报告
 ```
-
-## 环境要求
-
-- **Python** >= 3.10
-- **CUDA** >= 12.1 (推荐，CPU 也可运行但较慢)
-- **OS** — Linux (WSL2) / macOS / Windows
 
 ## 快速开始
 
-### 1. 创建虚拟环境
+### 1. 环境
 
 ```bash
-conda create -n dcase2025 python=3.10 -y
-conda activate dcase2025
-```
-
-### 2. 安装依赖
-
-```bash
+conda create -n dcase2025 python=3.10 -y && conda activate dcase2025
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+pip install pymupdf fasteners seaborn  # 论文翻译 + 官方依赖
 ```
 
-### 3. 准备数据
-
-将你的音频文件 (.wav / .mp3 / .flac) 放入对应目录：
-
-- `data/train/` — 正常训练样本 (仅正常声音，用于无监督训练)
-- `data/test/`  — 测试样本 (含正常与异常，用于评估)
-
-### 4. 特征提取
-
-```python
-from src.features.pipeline import FeaturePipeline
-
-pipeline = FeaturePipeline(config_path="config.yaml")
-pipeline.process_directory("data/train/", "data/processed/train/")
-```
-
-### 5. 训练 ConvAE 模型
-
-```python
-from src.models.conv_ae import ConvAE
-from src.utils.trainer import Trainer
-
-model = ConvAE.from_config("config.yaml")
-trainer = Trainer(model, config_path="config.yaml")
-trainer.train("data/processed/train/")
-```
-
-### 6. 训练 DANN 模型 (领域泛化)
-
-```python
-from src.models.dann import DANNAutoEncoder
-from src.utils.trainer_dann import DANNTrainer
-
-model = DANNAutoEncoder.from_config("config.yaml")
-trainer = DANNTrainer(model, config_path="config.yaml")
-trainer.train("data/processed/train/")
-```
-
-### 7. 启动 Web 前端
+### 2. 启动前端
 
 ```bash
 streamlit run ui/app.py
 ```
 
-浏览器打开 `http://localhost:8501`，上传音频即可查看检测结果。
+浏览器打开 `http://localhost:8501`，选择 MLP-AE 模型，上传 `data/demo/` 下的测试音频即可体验。
 
-## 配置文件说明
+### 3. 训练
 
-所有超参数统一在 `config.yaml` 中管理：
+```bash
+# 全 7 机器训练 (GPU 预加载, ~15 分钟)
+python scripts/train_all_baseline.py --exp my_exp --epochs 100
 
-| 分类 | 主要参数 |
-|------|----------|
-| `audio` | 采样率、时长、高通滤波截止频率、降噪开关 |
-| `mel` | n_fft、hop_length、n_mels、频率范围、动态范围 |
-| `frame` | 窗口大小、滑动步长、最小帧数 |
-| `conv_ae` | 瓶颈层维度、通道数、卷积核大小 |
-| `dann` | 域数量、域分类器维度、对抗损失权重 |
-| `train` | batch_size、epochs、学习率、Early Stopping |
-| `anomaly` | 阈值百分位、手动阈值覆盖 |
+# 单机器快速测试
+python scripts/train_all_baseline.py --exp my_exp --machine ToyCar --epochs 50
+```
+
+### 4. 下载数据集
+
+```bash
+# DCASE 2025 T2 开发集 (7 机器, ~2.4 GB)
+# 从 https://zenodo.org/records/15097779 下载所有 dev_*.zip
+# 解压到 data/raw/<machine_type>/
+
+# 附加训练集 (8 新机器, ~1.9 GB)
+# 从 https://zenodo.org/records/15392814 下载 eval_data_*_train.zip
+```
+
+## 三种模型
+
+| 模型 | 架构 | 评分 | 状态 |
+|------|------|------|:---:|
+| MLP-AE | 640→128×5→8, BN(0.01) | 逐文件 MSE | ✅ 追平官方基线 |
+| ConvAE | 3层Conv2d+卷积瓶颈 | 逐文件 MSE | 🔧 框架完成, 待跑分 |
+| DANN | ConvAE + GRL + 域分类器 | MSE + 域对抗 | 🔧 框架完成, 待跑分 |
+
+## 论文调研
+
+8 篇论文逐字翻译为中文，`paper/` 目录下：
+
+- 基础理论：DANN (Ganin 2016), ConvAE (Masci 2011)
+- 赛事全景：DCASE 2025 Task 2 官方综述
+- Top 方案：🥇Wang_MYPS  🥈Saengthong  🥉Yang_NBU
+- 高质量方案：Kim (ArcFace+Center), Zheng (BEATs+EAT)
 
 ## 许可
 
