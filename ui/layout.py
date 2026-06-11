@@ -151,8 +151,9 @@ def render_results(
         )
 
     with col2:
-        st.pyplot(
+        st.plotly_chart(
             mel_spectrogram_plot(log_mel, sample_rate, hop_length, title="梅尔瀑布图"),
+            use_container_width=True,
         )
 
     with col3:

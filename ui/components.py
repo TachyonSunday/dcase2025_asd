@@ -88,23 +88,21 @@ def mel_spectrogram_plot(
     sample_rate: int,
     hop_length: int = 512,
     title: str = "Log-Mel 频谱图",
-):
-    """Matplotlib 热力图, colorbar 不挤占主图。"""
+) -> go.Figure:
+    """Plotly 交互式热力图, 与其他组件风格统一。"""
     n_mels, n_frames = log_mel.shape
     times = np.arange(n_frames) * hop_length / sample_rate
 
-    fig, ax = plt.subplots(figsize=(10, 3.5))
-    im = ax.imshow(log_mel, aspect="auto", origin="lower",
-                   extent=[times[0], times[-1], 0, n_mels],
-                   cmap="viridis", vmin=-80, vmax=0)
-    ax.set_xlabel("时间 (秒)")
-    ax.set_ylabel("Mel 频带")
-    ax.set_title(title)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.08)
-    plt.colorbar(im, cax=cax, label="dB")
-    plt.tight_layout()
+    fig = go.Figure(data=go.Heatmap(
+        z=log_mel, x=times, y=np.arange(n_mels),
+        colorscale="Viridis", zmin=-80, zmax=0,
+        colorbar=dict(title="dB", len=0.8),
+    ))
+    fig.update_layout(
+        title=title, xaxis_title="时间 (秒)", yaxis_title="Mel 频带",
+        template="plotly_white", height=350,
+        margin=dict(l=40, r=40, t=50, b=40),
+    )
     return fig
 
 
