@@ -8,7 +8,17 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+# 注册中文字体
+_font_path = "/home/siriuschen/.fonts/NotoSansCJKsc-Regular.otf"
+if __import__("os").path.exists(_font_path):
+    fm.fontManager.addfont(_font_path)
+    _prop = fm.FontProperties(fname=_font_path)
+    _font_name = _prop.get_name()
+    plt.rcParams["font.family"] = _font_name
+    plt.rcParams["axes.unicode_minus"] = False
 import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
