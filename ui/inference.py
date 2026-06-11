@@ -64,7 +64,10 @@ class InferenceEngine:
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
 
-        self.device = torch.device(device or self.config.get("device", "cuda"))
+        device_str = device or self.config.get("device", "cuda")
+        if device_str == "cuda" and not torch.cuda.is_available():
+            device_str = "cpu"
+        self.device = torch.device(device_str)
         self.pipeline = FeaturePipeline(config_path)
 
         # 帧切片参数
