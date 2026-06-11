@@ -1,0 +1,8 @@
+{
+  "machine": "ToyTrain",
+  "auc_source": 0.6488,
+  "auc_target": 0.5432,
+  "auc_overall": 0.596,
+  "best_epoch": 100,
+  "best_loss": 10.99156162881649
+}

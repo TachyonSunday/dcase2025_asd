@@ -1,0 +1,8 @@
+{
+  "machine": "ToyCar",
+  "auc_source": 0.684,
+  "auc_target": 0.3808,
+  "auc_overall": 0.5324,
+  "best_epoch": 99,
+  "best_loss": 10.146664985335761
+}

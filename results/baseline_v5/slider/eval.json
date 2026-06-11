@@ -1,0 +1,8 @@
+{
+  "machine": "slider",
+  "auc_source": 0.6890000000000001,
+  "auc_target": 0.49279999999999996,
+  "auc_overall": 0.5909,
+  "best_epoch": 100,
+  "best_loss": 11.989149840716019
+}

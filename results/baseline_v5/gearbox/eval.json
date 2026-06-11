@@ -1,0 +1,8 @@
+{
+  "machine": "gearbox",
+  "auc_source": 0.6302000000000001,
+  "auc_target": 0.47459999999999997,
+  "auc_overall": 0.5524,
+  "best_epoch": 97,
+  "best_loss": 11.322853332322007
+}

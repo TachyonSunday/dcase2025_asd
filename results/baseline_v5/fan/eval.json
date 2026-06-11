@@ -1,0 +1,8 @@
+{
+  "machine": "fan",
+  "auc_source": 0.729,
+  "auc_target": 0.33,
+  "auc_overall": 0.5295000000000001,
+  "best_epoch": 99,
+  "best_loss": 10.888596246713188
+}

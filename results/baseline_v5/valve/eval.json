@@ -1,0 +1,8 @@
+{
+  "machine": "valve",
+  "auc_source": 0.6796,
+  "auc_target": 0.6753999999999999,
+  "auc_overall": 0.6775,
+  "best_epoch": 99,
+  "best_loss": 9.35865881624191
+}

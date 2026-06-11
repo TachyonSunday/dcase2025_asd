@@ -1,0 +1,8 @@
+{
+  "machine": "bearing",
+  "auc_source": 0.6338,
+  "auc_target": 0.4918,
+  "auc_overall": 0.5628,
+  "best_epoch": 100,
+  "best_loss": 12.27428296293487
+}
