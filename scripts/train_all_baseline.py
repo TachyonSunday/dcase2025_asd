@@ -93,7 +93,11 @@ def train_and_eval(machine_type, processed_root, result_dir, epochs=100, device=
           f"Test: src_N={len(test_src_n)} src_A={len(test_src_a)} tgt_N={len(test_tgt_n)} tgt_A={len(test_tgt_a)}")
     print(f"{'='*60}")
 
-    train_loader = DataLoader(train_ds, batch_size=256, shuffle=True, num_workers=2, pin_memory=True)
+    # ---- 预加载全部训练数据到 GPU 显存 (消除磁盘 IO) ----
+    print(f"[{machine_type}] Loading {len(train_ds):,} frames to GPU memory...")
+    all_train_x = torch.stack([train_ds[i][0] for i in tqdm(range(len(train_ds)), desc="Preload")]).to(device)
+    train_size_mb = all_train_x.numel() * 4 / 1024**2
+    print(f"[{machine_type}] Preloaded: {train_size_mb:.0f} MB on {device}")
 
     # Model + optimizer
     model = BaselineAE(input_dim=input_dim, latent_dim=8).to(device)
@@ -112,50 +116,54 @@ def train_and_eval(machine_type, processed_root, result_dir, epochs=100, device=
         best_loss = ckpt.get("best_loss", float("inf"))
         best_epoch = ckpt.get("best_epoch", 0)
         history = ckpt.get("history", [])
-        print(f"[{machine_type}] Resumed from epoch {start_epoch} (best loss={best_loss:.4f} @ {best_epoch})")
+        print(f"[{machine_type}] Resumed from epoch {start_epoch}")
 
-    # ---- Training loop ----
+    # ---- Training loop (no DataLoader — all data on GPU) ----
+    N = len(all_train_x)
+    batch_size = 2048  # 放大了 8x, GPU 显存足够
+    n_batches = N // batch_size
     eta_start = time.time()
+
     for epoch in range(start_epoch, epochs):
         model.train()
         epoch_start = time.time()
-        total_loss, n_batches = 0.0, len(train_loader)
-        pbar = tqdm(train_loader, desc=f"[{machine_type}] Epoch {epoch+1:3d}/{epochs}", leave=False)
+        total_loss = 0.0
 
-        for x, _ in pbar:
-            x = x.to(device)
+        # GPU 上原地 shuffle (不用 CPU)
+        perm = torch.randperm(N, device=device)
+        indices = torch.arange(0, N - batch_size + 1, batch_size, device=device)
+
+        pbar = tqdm(indices.tolist(), desc=f"[{machine_type}] E{epoch+1:3d}/{epochs}", leave=False)
+        for start in pbar:
+            end = min(start + batch_size, N)
+            x = all_train_x[perm[start:end]]
             x_recon, _ = model(x)
             loss = criterion(x_recon, x)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
-            pbar.set_postfix({"loss": f"{loss.item():.3f}"})
+            total_loss += loss.item() * (end - start)
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
-        avg_loss = total_loss / n_batches
+        avg_loss = total_loss / N
         scheduler.step(avg_loss)
         history.append(float(avg_loss))
         epoch_time = time.time() - epoch_start
 
-        # Track best
         if avg_loss < best_loss:
             best_loss = avg_loss
             best_epoch = epoch + 1
             torch.save(model.state_dict(), ckpt_path)
 
-        # Periodic save (every 10 epochs, prevents loss on crash)
         if (epoch + 1) % 10 == 0:
-            torch.save({
-                "epoch": epoch, "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "best_loss": best_loss, "best_epoch": best_epoch, "history": history,
-            }, ckpt_path.replace(".pt", f"_epoch{epoch+1}.pt"))
+            torch.save({"epoch": epoch, "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "best_loss": best_loss, "best_epoch": best_epoch, "history": history,
+                        }, ckpt_path.replace(".pt", f"_epoch{epoch+1}.pt"))
 
-        # ETA
-        eta_per_epoch = (time.time() - eta_start) / max(1, epoch + 1 - start_epoch)
-        eta_remaining = eta_per_epoch * (epochs - epoch - 1)
-        print(f"[{machine_type}] Epoch {epoch+1:3d}/{epochs} | loss={avg_loss:.4f} best={best_loss:.4f}@{best_epoch} | "
-              f"{epoch_time:.0f}s/ep | ETA: {eta_remaining/60:.0f}min")
+        eta_r = (time.time() - eta_start) / max(1, epoch + 1 - start_epoch) * (epochs - epoch - 1)
+        print(f"[{machine_type}] E{epoch+1:3d}/{epochs} loss={avg_loss:.4f} best={best_loss:.4f}@{best_epoch} "
+              f"{epoch_time:.0f}s | ETA {eta_r/60:.0f}m")
 
     # ---- Evaluation ----
     model.load_state_dict(torch.load(ckpt_path))
