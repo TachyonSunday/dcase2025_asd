@@ -214,8 +214,7 @@ class InferenceEngine:
                 x_recon, _ = self.model(batch)
                 mse = ((x_recon - batch) ** 2).mean(dim=1)  # (B,)
                 frame_scores.extend(mse.cpu().tolist())
-            # 重建误差热力图用简化的逐帧误差
-            recon_errors_full = torch.zeros(1, spec_tensor.shape[1], max(n_vecs, 1))
+            # MLP 不产生 2D 重建误差热力图
         else:
             # ConvAE/DANN: 2D 滑动窗口
             frames = self._sliding_window_frames(spec_tensor)

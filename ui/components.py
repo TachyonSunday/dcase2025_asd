@@ -279,36 +279,37 @@ def recon_comparison_plot(
     times = np.arange(n_frames) * hop_length / sample_rate
     mel_bins = np.arange(n_mels)
 
-    fig = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=("原始 Log-Mel 频谱", "重建误差 (MSE)"),
-        vertical_spacing=0.12,
-    )
+    has_error = recon_error is not None and recon_error.size > 0 and np.max(np.abs(recon_error)) > 1e-8
 
-    # 上: 原始频谱
-    fig.add_trace(
-        go.Heatmap(
+    if has_error:
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=("原始 Log-Mel 频谱", "重建误差 (MSE)"),
+            vertical_spacing=0.12,
+        )
+        # 上: 原始频谱
+        fig.add_trace(
+            go.Heatmap(z=log_mel, x=times, y=mel_bins,
+                       colorscale="Viridis", zmin=-80, zmax=0,
+                       colorbar=dict(title="dB", x=0.46, len=0.4, y=0.82)),
+            row=1, col=1,
+        )
+        # 下: 重建误差
+        err_frames = min(recon_error.shape[-1], n_frames)
+        fig.add_trace(
+            go.Heatmap(z=recon_error[:, :err_frames], x=times[:err_frames],
+                       y=np.arange(recon_error.shape[0]),
+                       colorscale="Reds",
+                       colorbar=dict(title="MSE", x=0.46, len=0.4, y=0.32)),
+            row=2, col=1,
+        )
+    else:
+        fig = go.Figure()
+        fig.add_trace(go.Heatmap(
             z=log_mel, x=times, y=mel_bins,
             colorscale="Viridis", zmin=-80, zmax=0,
-            colorbar=dict(title="dB", x=1.0),
-            name="原始频谱",
-        ),
-        row=1, col=1,
-    )
-
-    # 下: 重建误差
-    # 确保 error 与 log_mel 时间轴对齐
-    err_frames = min(recon_error.shape[-1], n_frames)
-    err_times = times[:err_frames]
-    fig.add_trace(
-        go.Heatmap(
-            z=recon_error[:, :err_frames], x=err_times, y=np.arange(recon_error.shape[0]),
-            colorscale="Reds",
-            colorbar=dict(title="MSE", x=1.0),
-            name="重建误差",
-        ),
-        row=2, col=1,
-    )
+            colorbar=dict(title="dB"),
+        ))
 
     fig.update_xaxes(title_text="时间 (秒)", row=2, col=1)
     fig.update_yaxes(title_text="Mel 频带", row=1, col=1)
