@@ -1,0 +1,71 @@
+# ============================================================
+# DCASE 2025 Task 2 - 基础配置文件
+# 机器音频无监督异常检测
+# ============================================================
+
+# ------ 音频参数 ------
+audio:
+  sr: 16000 # 采样率 (Hz)
+  n_mels: 128 # Mel 频率带数
+  n_fft: 1024 # FFT 窗口大小
+  hop_length: 512 # FFT 跳跃长度
+  win_length: 1024 # FFT 窗口长度（通常与 n_fft 相同）
+  fmin: 50 # Mel 滤波器最低频率 (Hz)
+  fmax: 8000 # Mel 滤波器最高频率 (Hz)，设为 sr/2 则使用全部频带
+  duration: 10.0 # 音频截断/填充的目标时长（秒），0 表示不截断
+
+# ------ 模型参数 ------
+model:
+  name: "beats" # 特征提取器名称 (BEATs 音频预训练模型)
+  pretrained: true # 是否使用预训练权重
+  beats_dir: "./models/beats" # BEATs 源码目录 (含 BEATs.py, backbone.py, modules.py)
+  checkpoint: "./checkpoints/beats_ft1.pt" # AudioSet fine-tuned checkpoint (GenRep beats_ft1)
+  encoder_embed_dim: 768 # BEATs encoder 隐藏维度 (D)
+  encoder_layers: 12 # BEATs Transformer 层数
+  embedding_dim: 12288 # GenRep 每层 Embedding 维度 (freq_groups * D * 2 = 8 * 768 * 2, Hybrid Mean+Max)
+  layer_idx: 11 # BEATs extract_features 计算到哪层 (11 → attns[1:] = 11 encoder layers)
+  input_type: "waveform" # 输入类型: "waveform" (原始波形, BEATs 内部计算 fbank)
+  pool_mode: "temporal" # 池化模式: "temporal" (GenRep 分块时序池化)
+  num_chunks: 8 # GenRep 频率分块数 (freq_groups = 128 mel / 16 patch = 8)
+
+# ------ 训练/特征提取参数 ------
+train:
+  batch_size: 32
+  num_workers: 4 # DataLoader 工作进程数
+  device: "cuda" # 设备：cuda / cpu / mps
+
+# ------ 异常打分参数 (Domain-wise Local Density Scoring) ------
+knn:
+  k_source: 16 # 源域局部密度近邻数 K_s
+  k_target: 9 # 目标域局部密度近邻数 K_t
+  k_score: 5 # 推理时取 K 近邻平均
+  metric: "euclidean" # 距离度量: euclidean (GenRep Local Density 要求) / cosine
+  algorithm: "auto" # KNN 算法：auto / ball_tree / kd_tree / brute
+  n_jobs: -1 # 并行计算线程数，-1 使用所有 CPU
+  n_mix_support: null # MemMixup 已禁用 (GenRep 2025: "apply without MemMixup")
+  alpha: 0.9 # MemMixup插值系数 (当前已禁用)
+  score_normalization: "local_density" # 打分归一化: "local_density" (GenRep) / "z_score" (legacy)
+
+# ------ 评估参数 ------
+evaluation:
+  max_fpr: 0.1 # pAUC 计算时的最大假阳性率 (DCASE 官方设置)
+
+# ------ 数据集路径 ------
+# dataset:
+#   train_dir: "./dev_data/raw" # 训练集根目录（会递归扫描所有子目录中的 train/）
+#   test_dir: "./dev_data/raw" # 测试集根目录（会递归扫描所有子目录中的 test/）
+#   features_dir: "./features" # 提取的特征保存目录
+#   file_extension: ".wav" # 音频文件扩展名
+dataset:
+  train_dir: "./add_data" # 额外训练集（用于建库）
+  test_dir: "./test" # 官方盲测评估集
+  features_dir: "./features_eval" # 独立存放特征，避免覆盖之前的数据
+  file_extension: ".wav"
+
+  # 文件名标签规则（根据 DCASE 数据集命名约定）
+  # 文件名中包含这些关键词的样本将被标记为异常
+  anomaly_keywords:
+    - "anomaly"
+    - "abnormal"
+    - "Anomaly"
+    - "Abnormal"

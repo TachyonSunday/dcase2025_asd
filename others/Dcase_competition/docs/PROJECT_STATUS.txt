@@ -1,0 +1,255 @@
+======================================================================
+DCASE 2025 Task 2 - 项目进度报告
+======================================================================
+项目: 机器音频无监督异常检测 (Unsupervised Anomaly Detection for Machine Audio)
+日期: 2026-06-11
+状态: 核心代码重构完成，等待特征提取与官方评估
+
+----------------------------------------------------------------------
+一、项目概述
+----------------------------------------------------------------------
+复现 DCASE 2025 Task 2 的先进解决方案，核心算法框架为：
+  - 特征提取: 基于 AudioSet 预训练 CED-Tiny 提取音频 Embedding (384维)
+  - 异常检测: Domain-wise Local Density Normalization (域感知局部密度归一化)
+  - 评估指标: AUC_source + AUC_target + pAUC + Official Score Ω (DCASE 2025 官方)
+
+----------------------------------------------------------------------
+二、已完成工作
+----------------------------------------------------------------------
+
+1. 工程框架搭建 ✅
+   - 标准深度学习项目结构 (configs/, models/, utils/, data/)
+   - 全局配置文件 (configs/config.yaml)
+   - requirements.txt 依赖管理
+
+2. 核心代码实现 ✅ (已重构)
+
+   - dataset.py: AudioAnomalyDataset 类 (Domain-Generalized)
+     * librosa 加载音频 → 原始波形 (16kHz 单声道)
+     * 训练模式自动过滤仅保留正常样本
+     * 双标签系统: anomaly_label (正常/异常) + domain_label (source/target)
+     * 从文件名自动解析标签和机器类型
+     * 移除 Log-Mel 计算，直接配合 CED-Tiny
+
+   - models/feature_extractor.py: CEDFeatureExtractor
+     * Hugging Face 预训练模型 (mispeech/ced-tiny)
+     * 音频专用预训练 (AudioSet)，比 ResNet18 更适合
+     * 输入: 16kHz 原始波形，无需预计算频谱
+     * 输出: 384 维 Embedding (最后两层 Transformer 拼接)
+     * 完全冻结模型参数
+
+   - utils/scoring.py: DomainWiseDensityScorer (GenRep)
+     * 分域内存库: source_memory_bank + target_memory_bank
+     * 局部密度预计算: K_s=16 (源域), K_t=9 (目标域)
+     * 密度归一化异常分数: score = min(score_s, score_t)
+     * AUC_source, AUC_target, pAUC, Official Score Ω 计算
+     * 保留 KNNScorer 用于对比实验
+
+   - extract_features.py: 特征提取主脚本
+     * 支持域标签提取和保存
+     * 返回 4 元组: embeddings, anomaly_labels, domain_labels, file_paths
+
+   - evaluate.py: DCASE 2025 官方评估脚本
+     * 按机器类型分别评估 (7 个机器)
+     * 计算 AUC_source, AUC_target, pAUC
+     * 计算 Official Score Ω (调和平均数)
+     * 输出 CSV + YAML 格式结果
+     * 完全对齐 DCASE 2025 官方评估协议
+
+3. 数据准备 ✅
+   - download_data.py: 多线程并发下载 + 断点续传 + 自动解压归档
+   - check_dataset.py: 数据集完整性校验
+   - 7 个数据集全部下载成功 (总计 2.3 GB ZIP → 2.9 GB 解压)
+
+4. 模型重构 ✅ (2026-06-11)
+   - ResNet18 → CED-Tiny (音频专用预训练)
+   - Log-Mel 频谱图 → 原始波形输入
+   - KNN → Domain-wise Local Density Normalization
+   - 单一标签 → 双标签 (anomaly + domain)
+   - 混合评估 → 按机器类型 + 按域评估
+
+----------------------------------------------------------------------
+三、数据集详情
+----------------------------------------------------------------------
+
+来源: Zenodo (https://zenodo.org/api/records/15097779)
+总计: 9100 个 WAV 文件
+
+机器类型统计:
+┌──────────┬───────┬──────┬──────────────┬─────┬──────┐
+│ 机器类型 │ train │ test │ supplemental │ CSV │ 合计 │
+├──────────┼───────┼──────┼──────────────┼─────┼──────┤
+│ ToyCar   │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ ToyTrain │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ bearing  │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ fan      │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ gearbox  │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ slider   │  1000 │  200 │          100 │  ✅ │ 1300 │
+│ valve    │  1000 │  200 │          100 │  ✅ │ 1300 │
+├──────────┼───────┼──────┼──────────────┼─────┼──────┤
+│ 总计     │  7000 │ 1400 │          700 │ 7/7 │ 9100 │
+└──────────┴───────┴──────┴──────────────┴─────┴──────┘
+
+目录结构:
+  dev_data/raw/<machine_type>/
+  ├── train/              (1000 .wav, 仅正常样本, source + target)
+  ├── test/               (200 .wav, 正常 + 异常样本, source + target)
+  ├── supplemental/       (100 .wav)
+  └── attributes_00.csv   (属性标注)
+
+音频参数验证:
+  - 采样率: 16000 Hz ✅
+  - 通道数: 1 (单声道) ✅
+  - 时长: 10-12 秒 ✅
+  - 格式: WAV ✅
+
+文件名示例:
+  - section_00_source_train_normal_0001_n_B.wav (source 域, 正常)
+  - section_00_target_train_normal_0001_n_B.wav (target 域, 正常)
+  - section_00_source_test_anomaly_0001_n_B.wav (source 域, 异常)
+
+----------------------------------------------------------------------
+四、下一步计划
+----------------------------------------------------------------------
+
+1. 运行特征提取
+   python extract_features.py --config configs/config.yaml --mode both
+
+   预期输出:
+   - features/train_embeddings.npy (7000, 384)
+   - features/train_metadata.pkl (anomaly_labels + domain_labels)
+   - features/test_embeddings.npy (1400, 384)
+   - features/test_metadata.pkl (anomaly_labels + domain_labels)
+
+2. 运行 DCASE 2025 官方评估
+   python evaluate.py --config configs/config.yaml
+
+   预期输出:
+   - results/dcase2025_results_YYYYMMDD_HHMMSS.csv (7 个机器的详细指标)
+   - results/dcase2025_summary_YYYYMMDD_HHMMSS.yaml (评估摘要)
+   - 控制台: 每个机器的 AUC_s, AUC_t, pAUC, Ω + 平均值
+
+3. 性能调优 (可选)
+   - 尝试不同 K_s, K_t, K_score 参数
+   - 尝试不同距离度量 (euclidean, cosine)
+   - 实现 DANN (Domain-Adversarial Neural Network)
+   - 多模型集成 (Ensemble)
+   - 数据增强 (SpecAugment, Mixup)
+
+----------------------------------------------------------------------
+五、技术亮点
+----------------------------------------------------------------------
+
+1. 自动化数据管道
+   - 多线程并发下载 + 断点续传
+   - 自动解压 + 智能目录归档
+   - 完整性校验脚本
+
+2. 模块化设计
+   - Dataset / Model / Scorer 解耦
+   - 配置驱动，易于实验不同参数
+   - 详细的中文注释
+
+3. Domain-Generalized 支持
+   - 双标签系统 (anomaly + domain)
+   - 域感知内存库构建
+   - 分域评估指标
+
+4. 符合 DCASE 2025 官方要求
+   - 评估指标: AUC_source + AUC_target + pAUC + Ω
+   - 按机器类型分别评估
+   - 数据格式: 官方目录结构
+   - 无监督设定: 训练阶段仅使用正常样本
+
+5. 音频专用预训练
+   - CED-Tiny (AudioSet) vs ResNet18 (ImageNet)
+   - 原始波形输入，信息保留更完整
+   - 更适合音频异常检测任务
+
+----------------------------------------------------------------------
+六、模型对比
+----------------------------------------------------------------------
+
+┌─────────────────┬──────────────────┬──────────────────┐
+│ 特性            │ 旧版本           │ 新版本           │
+├─────────────────┼──────────────────┼──────────────────┤
+│ 模型            │ ResNet18         │ CED-Tiny         │
+│ 预训练数据      │ ImageNet (图像)  │ AudioSet (音频)  │
+│ 输入类型        │ Log-Mel 频谱图   │ 原始波形         │
+│ 输出维度        │ 512              │ 384              │
+│ 打分算法        │ KNN (K=5)        │ Domain Density   │
+│ 域支持          │ ❌               │ ✅               │
+│ 评估指标        │ AUC + pAUC       │ AUC_s + AUC_t    │
+│                 │                  │ + pAUC + Ω       │
+│ 官方对齐        │ ❌               │ ✅ (DCASE 2025)  │
+└─────────────────┴──────────────────┴──────────────────┘
+
+----------------------------------------------------------------------
+七、文件清单
+----------------------------------------------------------------------
+
+核心代码:
+  - dataset.py (域泛化支持, 双标签)
+  - models/feature_extractor.py (CED-Tiny, 384维)
+  - utils/scoring.py (DomainWiseDensityScorer)
+  - extract_features.py (特征提取 + 域标签)
+  - evaluate.py (DCASE 2025 官方评估)
+
+配置文件:
+  - configs/config.yaml (CED-Tiny 参数 + 打分器参数)
+  - requirements.txt (transformers, huggingface_hub)
+
+辅助脚本:
+  - download_data.py (数据下载)
+  - check_dataset.py (数据校验)
+
+文档:
+  - .claude/CLAUDE.md (项目说明)
+  - PROJECT_STATUS.txt (本报告)
+  - DCASE2025_EVALUATION.md (官方评估协议)
+  - DOMAIN_GENERALIZATION.md (域泛化说明)
+  - REFACTOR_SUMMARY.md (CED-Tiny 重构)
+  - CHANGELOG.md (更新日志)
+
+----------------------------------------------------------------------
+八、环境要求
+----------------------------------------------------------------------
+
+Python >= 3.8
+主要依赖:
+  - torch >= 2.0.0
+  - torchaudio >= 2.0.0
+  - transformers >= 4.30.0 (新增: CED-Tiny)
+  - huggingface_hub >= 0.20.0 (新增: 模型下载)
+  - librosa >= 0.10.0
+  - scikit-learn >= 1.3.0
+  - numpy >= 1.24.0
+  - tqdm >= 4.65.0
+
+安装命令:
+  pip install -r requirements.txt
+
+----------------------------------------------------------------------
+九、参考文献
+----------------------------------------------------------------------
+
+1. CED-Tiny
+   - Hugging Face: https://huggingface.co/mispeech/ced-tiny
+   - Paper: "CED: A Compact and Efficient Audio Classifier"
+
+2. GenRep
+   - Paper: "Generative Representation Learning for Domain-Generalized
+     Anomalous Sound Detection"
+   - DCASE 2025 Workshop
+
+3. DCASE 2025 Task 2
+   - Official: https://dcase.community/challenge2025/
+   - Baseline: https://github.com/dcase-community/dcase2025_task2_baseline
+
+4. Domain-Adversarial Training
+   - Paper: "Domain-Adversarial Training of Neural Networks"
+     (Ganin et al., 2015)
+
+======================================================================
+报告结束
+======================================================================

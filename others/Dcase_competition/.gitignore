@@ -1,0 +1,32 @@
+# Data directories (too large for git)
+add_data/
+dev_data/
+test/
+features/
+features_eval/
+downloads/
+results/
+submission/
+
+# Model weights
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp files
+temp_*
+*.wav
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
